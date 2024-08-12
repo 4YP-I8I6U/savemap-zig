@@ -92,25 +92,19 @@ pub fn loadFromFile(Key: type, Value: type, allocator: std.mem.Allocator, file: 
     };
 }
 
+//NOTE: These functions will waste space with slices of elements,
+// where element's bit size is less than 8.
 fn sliceToBytes(slice: anytype) []u8 {
     var new_slice: []u8 = undefined;
-    const elem_size = @sizeOf(std.meta.Elem(@TypeOf(slice)));
     new_slice.ptr = @alignCast(@ptrCast(slice.ptr));
-    new_slice.len = if (elem_size > @sizeOf(u8))
-        slice.len * elem_size
-    else
-        slice.len * (elem_size / @sizeOf(u8));
+    new_slice.len = slice.len * @sizeOf(std.meta.Elem(@TypeOf(slice)));
     return new_slice;
 }
 
 fn manyToBytes(ptr: anytype, len: usize) []u8 {
     var new_slice: []u8 = undefined;
-    const elem_size = @sizeOf(std.meta.Elem(@TypeOf(ptr)));
     new_slice.ptr = @alignCast(@ptrCast(ptr));
-    new_slice.len = if (elem_size > @sizeOf(u8))
-        len * elem_size
-    else
-        len * (elem_size / @sizeOf(u8));
+    new_slice.len = len * @sizeOf(std.meta.Elem(@TypeOf(ptr)));
     return new_slice;
 }
 
