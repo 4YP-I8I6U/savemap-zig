@@ -1,5 +1,5 @@
 const std = @import("std");
-const lib = @import("lib.zig");
+const lib = @import("Lib");
 const testing = std.testing;
 const debug = std.debug;
 
@@ -12,7 +12,7 @@ test "save-load-empty" {
     const Key = u32;
     const Value = u64;
     const map = std.AutoHashMap(Key, Value).init(std.heap.page_allocator);
-    const file = try std.fs.cwd().createFile("test/map-save-empty", .{ .read = true });
+    const file = try std.fs.cwd().createFile("tests/out/map-save-empty", .{ .read = true });
     try lib.saveToFile(Key, Value, map, file);
 
     try file.seekTo(0);
@@ -31,7 +31,7 @@ test "save-load-1" {
     try map.put(180, 30249284);
     try map.put(4, 23232090328);
     try map.put(4096, 8420);
-    const file = try std.fs.cwd().createFile("test/map-save-1", .{ .read = true });
+    const file = try std.fs.cwd().createFile("tests/out/map-save-1", .{ .read = true });
     try lib.saveToFile(Key, Value, map, file);
 
     try file.seekTo(0);
@@ -57,7 +57,7 @@ test "save-load-rand1" {
     const len = rand.intRangeAtMost(usize, 100, 1000);
     for (0..len) |_| try map.put(rand.int(Key), rand.int(Value));
 
-    const file = try std.fs.cwd().createFile("test/map-save-rand1", .{ .read = true });
+    const file = try std.fs.cwd().createFile("tests/out/map-save-rand1", .{ .read = true });
     try lib.saveToFile(Key, Value, map, file);
 
     try file.seekTo(0);
@@ -80,7 +80,7 @@ test "save-load-2" {
     try map.put(31, [2]u64{ 928375, 1980310 });
     try map.put(9238, [2]u64{ 1599, 28579 });
     try map.put(295, [2]u64{ 3429, 685929 });
-    const file = try std.fs.cwd().createFile("test/map-save-2", .{ .read = true });
+    const file = try std.fs.cwd().createFile("tests/out/map-save-2", .{ .read = true });
     try lib.saveToFile(Key, Value, map, file);
 
     try file.seekTo(0);
@@ -115,7 +115,7 @@ test "save-load-rand2" {
         });
     }
 
-    const file = try std.fs.cwd().createFile("test/map-save-rand2", .{ .read = true });
+    const file = try std.fs.cwd().createFile("tests/out/map-save-rand2", .{ .read = true });
     try lib.saveToFile(Key, Value, map, file);
 
     try file.seekTo(0);
@@ -153,7 +153,7 @@ test "save-load-rand3" {
         });
     }
 
-    const file = try std.fs.cwd().createFile("test/map-save-rand3", .{ .read = true });
+    const file = try std.fs.cwd().createFile("tests/out/map-save-rand3", .{ .read = true });
     try lib.saveToFile(Key, Value, map, file);
 
     try file.seekTo(0);
@@ -192,7 +192,7 @@ test "save-load-rand4" {
         });
     }
 
-    const file = try std.fs.cwd().createFile("test/map-save-rand4", .{ .read = true });
+    const file = try std.fs.cwd().createFile("tests/out/map-save-rand4", .{ .read = true });
     try lib.saveToFile(Key, Value, map, file);
 
     try file.seekTo(0);
