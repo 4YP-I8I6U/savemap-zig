@@ -5,17 +5,13 @@ pub fn build(b: *std.Build) void {
 
     const lib = b.addStaticLibrary(.{
         .name = "save-map",
-        .root_source_file = b.path("src/lib.zig"),
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
     b.installArtifact(lib);
 
-    const lib_module = b.addModule("LibMod", .{ .root_source_file = .{ .path = "src/lib.zig" } });
-    // const test_module = b.addModule("Test", .{ .root_source_file = .{ .path = "tests/tests.zig" } });
-    // test_module.addImport("Lib", lib_module);
-    // lib.root_module.addImport("Lib", lib_module);
-    // lib.root_module.addImport("Test", test_module);
+    const lib_module = b.addModule("Lib", .{ .root_source_file = .{ .path = "src/main.zig" } });
 
     // Creates a step for unit testing. This only builds the test executable
     // but does not run it.

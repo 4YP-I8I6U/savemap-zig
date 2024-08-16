@@ -3,27 +3,71 @@ const lib = @import("Lib");
 const testing = std.testing;
 const debug = std.debug;
 
-export fn add(a: i32, b: i32) i32 {
-    return a + b;
+// Test saving and loading empty unmanaged hash map.
+test "save-load empty unmanaged" {
+    const Key = u32;
+    const Value = u64;
+    const Context = std.hash_map.AutoContext(Key);
+    const map = std.HashMapUnmanaged(Key, Value, Context, 80){};
+    const file = try std.fs.cwd().createFile("tests/out/map-save-empty", .{ .read = true });
+    try lib.saveHashMapUnmanaged(Key, Value, Context, 80, map, file);
+
+    try file.seekTo(0);
+    const loaded_map = try lib.loadHashMapUnmanaged(Key, Value, Context, 80, file);
+    debug.assert(loaded_map.count() == map.count());
+
+    file.close();
 }
 
-// Test saving and loading empty map.
-test "save-load-empty" {
+// Test saving and loading empty managed hash map.
+test "save-load empty managed" {
+    const Key = u32;
+    const Value = u64;
+    const Context = std.hash_map.AutoContext(Key);
+    const map = std.HashMap(Key, Value, Context, 80).init(std.heap.page_allocator);
+    const file = try std.fs.cwd().createFile("tests/out/map-save-empty", .{ .read = true });
+    try lib.saveHashMap(Key, Value, Context, 80, map, file);
+
+    try file.seekTo(0);
+    const loaded_map = try lib.loadHashMap(Key, Value, Context, 80, std.heap.page_allocator, file);
+    debug.assert(loaded_map.count() == map.count());
+
+    file.close();
+}
+
+// Test saving and loading empty auto hash map.
+test "save-load empty" {
     const Key = u32;
     const Value = u64;
     const map = std.AutoHashMap(Key, Value).init(std.heap.page_allocator);
     const file = try std.fs.cwd().createFile("tests/out/map-save-empty", .{ .read = true });
-    try lib.saveToFile(Key, Value, map, file);
+    try lib.saveAutoHashMap(Key, Value, map, file);
 
     try file.seekTo(0);
-    const loaded_map = try lib.loadFromFile(Key, Value, std.heap.page_allocator, file);
+    const loaded_map = try lib.loadAutoHashMap(Key, Value, std.heap.page_allocator, file);
+    debug.assert(loaded_map.count() == map.count());
+
+    file.close();
+}
+
+// Test saving empty unmanaged hash map and loading it as an auto hash map.
+test "save unmanaged-load auto empty" {
+    const Key = u32;
+    const Value = u64;
+    const Context = std.hash_map.AutoContext(Key);
+    const map = std.HashMapUnmanaged(Key, Value, Context, 80){};
+    const file = try std.fs.cwd().createFile("tests/out/map-save-empty", .{ .read = true });
+    try lib.saveHashMapUnmanaged(Key, Value, Context, 80, map, file);
+
+    try file.seekTo(0);
+    const loaded_map = try lib.loadAutoHashMap(Key, Value, std.heap.page_allocator, file);
     debug.assert(loaded_map.count() == map.count());
 
     file.close();
 }
 
 // Test saving and loading simple map.
-test "save-load-1" {
+test "save-load 1" {
     const Key = u32;
     const Value = u64;
     var map = std.AutoHashMap(Key, Value).init(std.heap.page_allocator);
@@ -32,10 +76,10 @@ test "save-load-1" {
     try map.put(4, 23232090328);
     try map.put(4096, 8420);
     const file = try std.fs.cwd().createFile("tests/out/map-save-1", .{ .read = true });
-    try lib.saveToFile(Key, Value, map, file);
+    try lib.saveAutoHashMap(Key, Value, map, file);
 
     try file.seekTo(0);
-    const loaded_map = try lib.loadFromFile(Key, Value, std.heap.page_allocator, file);
+    const loaded_map = try lib.loadAutoHashMap(Key, Value, std.heap.page_allocator, file);
     debug.assert(loaded_map.count() == map.count());
 
     var it = map.iterator();
@@ -46,7 +90,7 @@ test "save-load-1" {
 }
 
 // Test saving and loading a random sized map.
-test "save-load-rand1" {
+test "save-load rand1" {
     const Key = u32;
     const Value = u128;
     const rand = rand_blk: {
@@ -58,10 +102,10 @@ test "save-load-rand1" {
     for (0..len) |_| try map.put(rand.int(Key), rand.int(Value));
 
     const file = try std.fs.cwd().createFile("tests/out/map-save-rand1", .{ .read = true });
-    try lib.saveToFile(Key, Value, map, file);
+    try lib.saveAutoHashMap(Key, Value, map, file);
 
     try file.seekTo(0);
-    const loaded_map = try lib.loadFromFile(Key, Value, std.heap.page_allocator, file);
+    const loaded_map = try lib.loadAutoHashMap(Key, Value, std.heap.page_allocator, file);
     debug.assert(loaded_map.count() == map.count());
 
     var it = map.iterator();
@@ -72,7 +116,7 @@ test "save-load-rand1" {
 }
 
 // Test saving and loading a map with an array as Value.
-test "save-load-2" {
+test "save-load 2" {
     const Key = u32;
     const Value = [2]u64;
     var map = std.AutoHashMap(Key, Value).init(std.heap.page_allocator);
@@ -81,10 +125,10 @@ test "save-load-2" {
     try map.put(9238, [2]u64{ 1599, 28579 });
     try map.put(295, [2]u64{ 3429, 685929 });
     const file = try std.fs.cwd().createFile("tests/out/map-save-2", .{ .read = true });
-    try lib.saveToFile(Key, Value, map, file);
+    try lib.saveAutoHashMap(Key, Value, map, file);
 
     try file.seekTo(0);
-    const loaded_map = try lib.loadFromFile(Key, Value, std.heap.page_allocator, file);
+    const loaded_map = try lib.loadAutoHashMap(Key, Value, std.heap.page_allocator, file);
     debug.assert(loaded_map.count() == map.count());
 
     var it = map.iterator();
@@ -97,7 +141,7 @@ test "save-load-2" {
 }
 
 // Test saving and loading a random sized map with an array as Value.
-test "save-load-rand2" {
+test "save-load rand2" {
     const Key = u32;
     const Value = [4]u32;
     const rand = rand_blk: {
@@ -116,10 +160,10 @@ test "save-load-rand2" {
     }
 
     const file = try std.fs.cwd().createFile("tests/out/map-save-rand2", .{ .read = true });
-    try lib.saveToFile(Key, Value, map, file);
+    try lib.saveAutoHashMap(Key, Value, map, file);
 
     try file.seekTo(0);
-    const loaded_map = try lib.loadFromFile(Key, Value, std.heap.page_allocator, file);
+    const loaded_map = try lib.loadAutoHashMap(Key, Value, std.heap.page_allocator, file);
     debug.assert(loaded_map.count() == map.count());
 
     var it = map.iterator();
@@ -136,7 +180,7 @@ test "save-load-rand2" {
 
 // Test saving and loading a random sized map with Key of bit size < u8
 // and array of elements which bit size < u8, as a Value.
-test "save-load-rand3" {
+test "save-load rand3" {
     const Key = u4;
     const Value = [3]u6;
     const rand = rand_blk: {
@@ -154,10 +198,10 @@ test "save-load-rand3" {
     }
 
     const file = try std.fs.cwd().createFile("tests/out/map-save-rand3", .{ .read = true });
-    try lib.saveToFile(Key, Value, map, file);
+    try lib.saveAutoHashMap(Key, Value, map, file);
 
     try file.seekTo(0);
-    const loaded_map = try lib.loadFromFile(Key, Value, std.heap.page_allocator, file);
+    const loaded_map = try lib.loadAutoHashMap(Key, Value, std.heap.page_allocator, file);
     debug.assert(loaded_map.count() == map.count());
 
     var it = map.iterator();
@@ -173,7 +217,7 @@ test "save-load-rand3" {
 
 // Test saving and loading a random sized map with Key of bit size < u8
 // and array of elements which bit size < u8, as a Value.
-test "save-load-rand4" {
+test "save-load rand4" {
     const Key = u7;
     const Value = [5]u5;
     const rand = rand_blk: {
@@ -193,10 +237,10 @@ test "save-load-rand4" {
     }
 
     const file = try std.fs.cwd().createFile("tests/out/map-save-rand4", .{ .read = true });
-    try lib.saveToFile(Key, Value, map, file);
+    try lib.saveAutoHashMap(Key, Value, map, file);
 
     try file.seekTo(0);
-    const loaded_map = try lib.loadFromFile(Key, Value, std.heap.page_allocator, file);
+    const loaded_map = try lib.loadAutoHashMap(Key, Value, std.heap.page_allocator, file);
     debug.assert(loaded_map.count() == map.count());
 
     var it = map.iterator();

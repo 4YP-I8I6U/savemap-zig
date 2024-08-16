@@ -1,9 +1,18 @@
 const std = @import("std");
-const AutoHashMap = std.AutoHashMap;
+const util = @import("util.zig");
+const HashMapUnmanaged = std.HashMapUnmanaged;
 
 const endian: std.builtin.Endian = .little;
+const allocator = std.heap.page_allocator;
 
-pub fn saveToFile(Key: type, Value: type, map: AutoHashMap(Key, Value), file: std.fs.File) !void {
+pub fn saveToFile(
+    Key: type,
+    Value: type,
+    Context: type,
+    comptime max_load_percentage: u64,
+    map: HashMapUnmanaged(Key, Value, Context, max_load_percentage),
+    file: std.fs.File,
+) !void {
     const Header = struct {
         values: [*]Value,
         keys: [*]Key,
@@ -11,14 +20,14 @@ pub fn saveToFile(Key: type, Value: type, map: AutoHashMap(Key, Value), file: st
     };
     const writer = file.writer();
 
-    if (map.unmanaged.metadata) |metadata| {
+    if (map.metadata) |metadata| {
         const header: *Header = @ptrCast(@as([*]Header, @ptrCast(@alignCast(metadata))) - 1);
-        const capacity = map.unmanaged.capacity();
-        const metadata_byte_slice = manyToBytes(metadata, capacity);
-        const val_byte_slice = manyToBytes(header.values, capacity);
-        const key_byte_slice = manyToBytes(header.keys, capacity);
-        try writer.writeInt(u32, map.unmanaged.size, endian);
-        try writer.writeInt(u32, map.unmanaged.available, endian);
+        const capacity = map.capacity();
+        const metadata_byte_slice = util.manyToBytes(metadata, capacity);
+        const val_byte_slice = util.manyToBytes(header.values, capacity);
+        const key_byte_slice = util.manyToBytes(header.keys, capacity);
+        try writer.writeInt(u32, map.size, endian);
+        try writer.writeInt(u32, map.available, endian);
         try writer.writeInt(u32, capacity, endian);
         try writer.writeAll(metadata_byte_slice);
         try writer.writeAll(key_byte_slice);
@@ -28,7 +37,13 @@ pub fn saveToFile(Key: type, Value: type, map: AutoHashMap(Key, Value), file: st
     }
 }
 
-pub fn loadFromFile(Key: type, Value: type, allocator: std.mem.Allocator, file: std.fs.File) !AutoHashMap(Key, Value) {
+pub fn loadFromFile(
+    Key: type,
+    Value: type,
+    Context: type,
+    comptime max_load_percentage: u64,
+    file: std.fs.File,
+) !HashMapUnmanaged(Key, Value, Context, max_load_percentage) {
     const Header = struct {
         values: [*]Value,
         keys: [*]Key,
@@ -38,7 +53,7 @@ pub fn loadFromFile(Key: type, Value: type, allocator: std.mem.Allocator, file: 
 
     const size = try reader.readInt(u32, endian);
     if (size == 0)
-        return AutoHashMap(Key, Value).init(allocator);
+        return .{};
 
     const available = try reader.readInt(u32, endian);
     const capacity = try reader.readInt(u32, endian);
@@ -47,6 +62,9 @@ pub fn loadFromFile(Key: type, Value: type, allocator: std.mem.Allocator, file: 
     var header_ptr: *Header = undefined;
     var key_slice: []Key = undefined;
     var val_slice: []Value = undefined;
+
+    // This part of code is a modified version of the allocate function located
+    // in hash_map.zig in standard library.
     {
         const header_align = @alignOf(Header);
         const key_align = if (@sizeOf(Key) == 0) 1 else @alignOf(Key);
@@ -66,8 +84,8 @@ pub fn loadFromFile(Key: type, Value: type, allocator: std.mem.Allocator, file: 
         header_ptr = @ptrCast(slice[0..@sizeOf(Header)]);
         metadata = @ptrCast(@as([*]Header, @ptrCast(header_ptr)) + 1);
 
-        key_slice = bytesToSlice(Key, slice[keys_start..keys_end]);
-        val_slice = bytesToSlice(Value, slice[vals_start..vals_end]);
+        key_slice = util.bytesToSlice(Key, slice[keys_start..keys_end]);
+        val_slice = util.bytesToSlice(Value, slice[vals_start..vals_end]);
 
         var read_len = try file.read(slice[@sizeOf(Header) .. capacity + @sizeOf(Header)]);
         std.debug.assert(read_len == capacity); //TEMP
@@ -80,38 +98,10 @@ pub fn loadFromFile(Key: type, Value: type, allocator: std.mem.Allocator, file: 
     header_ptr.capacity = capacity;
     header_ptr.keys = @ptrCast(key_slice);
     header_ptr.values = @ptrCast(val_slice);
-    return AutoHashMap(Key, Value){
-        .unmanaged = .{
-            .metadata = @ptrCast(metadata),
-            .size = size,
-            .available = available,
-            .pointer_stability = .{},
-        },
-        .allocator = allocator,
-        .ctx = undefined,
+    return HashMapUnmanaged(Key, Value, Context, max_load_percentage){
+        .metadata = @ptrCast(metadata),
+        .size = size,
+        .available = available,
+        .pointer_stability = .{},
     };
-}
-
-//NOTE: These functions will waste space with slices of elements,
-// where element's bit size is less than 8.
-fn sliceToBytes(slice: anytype) []u8 {
-    var new_slice: []u8 = undefined;
-    new_slice.ptr = @alignCast(@ptrCast(slice.ptr));
-    new_slice.len = slice.len * @sizeOf(std.meta.Elem(@TypeOf(slice)));
-    return new_slice;
-}
-
-fn manyToBytes(ptr: anytype, len: usize) []u8 {
-    var new_slice: []u8 = undefined;
-    new_slice.ptr = @alignCast(@ptrCast(ptr));
-    new_slice.len = len * @sizeOf(std.meta.Elem(@TypeOf(ptr)));
-    return new_slice;
-}
-
-fn bytesToSlice(T: type, bytes: []u8) []T {
-    if (bytes.len == 0) return &[0]T{};
-    var new_slice: []T = undefined;
-    new_slice.ptr = @alignCast(@ptrCast(bytes.ptr));
-    new_slice.len = @divExact(bytes.len, @sizeOf(T));
-    return new_slice;
 }
