@@ -1,6 +1,6 @@
-## Save Map Zig
+### Savemap Zig
 
-This project aims to provide saving and loading functionality for a Zig hashmap.
+This project aims to provide file save and load functionality for a Zig hashmap from standard library.
 
 Compatibility:
 - Zig 0.12.0
